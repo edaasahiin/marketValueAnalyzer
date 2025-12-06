@@ -63,6 +63,7 @@ Utils — cleaning, logging, helpers
 5. Installation & Running
 Clone the repo
 git clone <https://github.com/edaasahiin/marketValueAnalyzer.git>
+cd smartworth.py
 
 Install dependencies
 pip install requests beautifulsoup4 sqlalchemy
