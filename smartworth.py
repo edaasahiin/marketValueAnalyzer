@@ -263,3 +263,102 @@ class Database:
                 .order_by(history_table.c.id.asc())
             ).fetchall()
         return rows
+
+    def delete_product(self, product_id: int):
+        """Deletes a product by ID."""
+        with self.engine.begin() as conn:
+            conn.execute(
+                delete(products_table).where(products_table.c.id == product_id)
+            )
+
+    def get_product_by_id(self, product_id: int):
+        """Returns a single product by ID."""
+        with self.engine.connect() as conn:
+            row = conn.execute(
+                select(products_table).where(products_table.c.id == product_id)
+            ).fetchone()
+        return row
+
+    def get_all_products_for_similarity(self, user_id: int):
+        """Returns all products for similarity comparison."""
+        with self.engine.connect() as conn:
+            rows = conn.execute(
+                select(
+                    products_table.c.id,
+                    products_table.c.name,
+                    products_table.c.category,
+                    products_table.c.avg_price,
+                    products_table.c.min_price,
+                    products_table.c.max_price,
+                    products_table.c.value_score,
+                    products_table.c.trend,
+                ).where(products_table.c.user_id == user_id)
+                .order_by(products_table.c.id.asc())
+            ).fetchall()
+        return rows
+
+# DOMAIN MODEL
+
+
+@dataclass
+class Product:
+    """Simple product structure."""
+    name: str
+    category: str
+    prices: list
+    avg_price: float
+    min_price: float
+    max_price: float
+    description: str
+
+
+# ANALYZERS
+
+
+class AnalyzerBase(ABC):
+    """Base class for product analyzers."""
+
+    @abstractmethod
+    def calculate_value_score(self, product: Product) -> int:
+        pass
+
+    @abstractmethod
+    def estimate_trend(self, product: Product) -> str:
+        pass
+
+
+class ElectronicsAnalyzer(AnalyzerBase):
+    """Basic analyzer fine-tuned for electronic items."""
+
+    def calculate_value_score(self, p: Product) -> int:
+        score = 55
+        spread = p.max_price - p.min_price
+
+        if p.avg_price > 0 and spread > p.avg_price * 0.2:
+            score -= 8
+
+        text = p.description.lower()
+        if "new" in text or "2023" in text or "2024" in text:
+            score += 10
+        if "old model" in text:
+            score -= 8
+
+        if p.min_price < p.avg_price * 0.9:
+            score += 5
+
+        return max(0, min(score, 100))
+
+    def estimate_trend(self, p: Product) -> str:
+        if p.avg_price == 0:
+            return "Unknown"
+
+        ratio = (p.max_price - p.min_price) / p.avg_price
+        if ratio < 0.06:
+            return "Stable"
+        if ratio < 0.15:
+            return "May decrease"
+        return "Uncertain"
+
+
+class ClothingAnalyzer(AnalyzerBase):
+    """Lightweight analyzer for clothing products."""
