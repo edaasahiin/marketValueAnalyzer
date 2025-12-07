@@ -362,3 +362,95 @@ class ElectronicsAnalyzer(AnalyzerBase):
 
 class ClothingAnalyzer(AnalyzerBase):
     """Lightweight analyzer for clothing products."""
+
+def calculate_value_score(self, p: Product) -> int:
+        score = 50
+        text = p.description.lower()
+
+        if "new season" in text:
+            score += 15
+        if "last season" in text:
+            score -= 5
+
+        if p.min_price < p.avg_price * 0.85:
+            score += 5
+
+        return max(0, min(score, 100))
+
+    def estimate_trend(self, p: Product) -> str:
+        return "Seasonal"
+
+
+class BookAnalyzer(AnalyzerBase):
+    """Simple analyzer for books."""
+
+    def calculate_value_score(self, p: Product) -> int:
+        score = 60
+        text = p.description.lower()
+
+        if "used" in text:
+            score -= 10
+        if "new edition" in text:
+            score += 8
+
+        return max(0, min(score, 100))
+
+    def estimate_trend(self, p: Product) -> str:
+        return "Stable"
+
+
+class GeneralAnalyzer(AnalyzerBase):
+    """Fallback analyzer when category is unclear."""
+
+    def calculate_value_score(self, p: Product) -> int:
+        score = 50
+        spread = p.max_price - p.min_price
+
+        if p.avg_price > 0 and spread > p.avg_price * 0.25:
+            score -= 8
+        if p.min_price < p.avg_price * 0.9:
+            score += 5
+
+        return max(0, min(score, 100))
+
+    def estimate_trend(self, p: Product) -> str:
+        if p.avg_price == 0:
+            return "Unknown"
+
+        ratio = (p.max_price - p.min_price) / p.avg_price
+        if ratio < 0.05:
+            return "Stable"
+        return "Uncertain"
+
+
+
+# SUPPLY / DEMAND ANALYZER
+
+
+class SupplyDemandAnalyzer:
+    """Extracts supply level hints from product description."""
+
+    def _init_(self):
+        self.high_words = ["limited stock", "only a few left", "low stock"]
+        self.medium_words = ["in stock", "available", "ready to ship"]
+        self.low_words = ["pre-order", "coming soon", "out of stock"]
+
+    def analyze_supply_level(self, text: str) -> str:
+        t = text.lower()
+        score = 0
+
+        for w in self.high_words:
+            if w in t:
+                score += 2
+        for w in self.medium_words:
+            if w in t:
+                score += 1
+        for w in self.low_words:
+            if w in t:
+                score -= 2
+
+        if score >= 2:
+            return "High"
+        if score <= -2:
+            return "Low"
+        return "Medium"
