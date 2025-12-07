@@ -363,7 +363,7 @@ class ElectronicsAnalyzer(AnalyzerBase):
 class ClothingAnalyzer(AnalyzerBase):
     """Lightweight analyzer for clothing products."""
 
-def calculate_value_score(self, p: Product) -> int:
+    def calculate_value_score(self, p: Product) -> int:
         score = 50
         text = p.description.lower()
 
@@ -454,3 +454,102 @@ class SupplyDemandAnalyzer:
         if score <= -2:
             return "Low"
         return "Medium"
+
+
+
+# CONSISTENCY CHECKER
+
+
+class PriceConsistencyChecker:
+    """Measures consistency between Google and Trendyol price averages."""
+
+    def calculate_consistency(self, prices_by_source: dict) -> float:
+        averages = []
+        for lst in prices_by_source.values():
+            valid = [p for p in lst if p > 0]
+            if valid:
+                averages.append(sum(valid) / len(valid))
+
+        if len(averages) <= 1:
+            return 100.0
+
+        global_avg = sum(averages) / len(averages)
+        max_dev = max(abs(a - global_avg) for a in averages)
+        consistency = max(0.0, 100.0 - (max_dev / global_avg) * 100)
+
+        return round(consistency, 2)
+
+
+
+# SIMILARITY FINDER
+
+
+class SimilarityFinder:
+    """Compares product names based on token similarity."""
+
+    def tokenize(self, name: str):
+        clean = (
+            name.lower()
+            .replace("-", " ")
+            .replace("_", " ")
+            .replace("(", " ")
+            .replace(")", " ")
+        )
+        return [p for p in clean.split() if p]
+
+    def similarity_score(self, a: str, b: str) -> float:
+        t1, t2 = self.tokenize(a), self.tokenize(b)
+        if not t1 or not t2:
+            return 0.0
+        common = set(t1) & set(t2)
+        return len(common) / len(set(t1))
+
+    def find_similar(self, db: Database, user_id: int, base: str, limit=5):
+        rows = db.get_all_products_for_similarity(user_id)
+        scored = []
+
+        for r in rows:
+            sim = self.similarity_score(base, r.name)
+            if sim > 0 and r.name.lower() != base.lower():
+                scored.append(
+                    (sim, r.id, r.name, r.category, r.avg_price, r.value_score, r.trend)
+                )
+
+        scored.sort(reverse=True, key=lambda x: x[0])
+        return scored[:limit]
+
+
+
+# SCRAPERS
+
+
+class GoogleScraper:
+    """Attempts to retrieve price snippets from Google."""
+
+    def __init__(self, product_name: str):
+        q = product_name.replace(" ", "+")
+        self.url = f"https://www.google.com/search?q={q}+price"
+        self.headers = {"User-Agent": "Mozilla/5.0"}
+
+    def get_data(self):
+        try:
+            resp = requests.get(self.url, headers=self.headers, timeout=6)
+        except Exception as e:
+            write_log(f"Google error: {e}")
+            return [0.0], "No description found."
+
+        soup = BeautifulSoup(resp.text, "html.parser")
+        prices = []
+
+        for span in soup.find_all("span", limit=8):
+            p = normalize_price_text(span.get_text())
+            if p > 0:
+                prices.append(p)
+
+        if not prices:
+            prices = [0.0]
+
+        desc_tag = soup.find("div")
+        desc = desc_tag.get_text(strip=True) if desc_tag else "No description found."
+
+        return prices, desc[:400]
