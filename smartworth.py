@@ -183,7 +183,83 @@ class UserAuth:
         return None, None 
 
 
-
+#  DATABASE  WRAPPER
         
         
+class Database:
+    """Centralized wrapper for DB operations."""
 
+    def __init__(self):
+        self.engine = engine
+
+    def save_history(self, name: str, prices_by_source: dict):
+        now = datetime.now().strftime("%d-%m-%Y %H:%M")
+        with self.engine.begin() as conn:
+            for source, lst in prices_by_source.items():
+                for p in lst:
+                    conn.execute(
+                        insert(history_table).values(
+                            product_name=name,
+                            price=p,
+                            source=source,
+                            date=now,
+                        )
+                    )
+
+    def add_product(self, user_id: int, product, score, trend, supply, consistency):
+        spread = product.max_price - product.min_price
+        with self.engine.begin() as conn:
+            conn.execute(
+                insert(products_table).values(
+                    user_id=user_id,
+                    name=product.name,
+                    category=product.category,
+                    avg_price=product.avg_price,
+                    min_price=product.min_price,
+                    max_price=product.max_price,
+                    price_spread=spread,
+                    value_score=score,
+                    trend=trend,
+                    description=product.description,
+                    supply_level=supply,
+                    consistency=consistency,
+                    date_added=datetime.now().strftime("%d-%m-%Y %H:%M"),
+                )
+            )
+
+    def list_products(self, user_id: int):
+        with self.engine.connect() as conn:
+            rows = conn.execute(
+                select(
+                    products_table.c.id,
+                    products_table.c.name,
+                    products_table.c.category,
+                    products_table.c.avg_price,
+                    products_table.c.value_score,
+                    products_table.c.trend,
+                ).where(products_table.c.user_id == user_id)
+            ).fetchall()
+
+        print("\n--- SAVED PRODUCTS ---\n")
+        if not rows:
+            print("No saved products.")
+            return
+
+        for r in rows:
+            print(
+                f"[{r.id}] {r.name} - {r.category} | "
+                f"Avg: {r.avg_price:.2f} TL | Score: %{r.value_score} | Trend: {r.trend}"
+            )
+
+    def get_history(self, name: str):
+        """Returns price history for a product."""
+        with self.engine.connect() as conn:
+            rows = conn.execute(
+                select(
+                    history_table.c.price,
+                    history_table.c.source,
+                    history_table.c.date,
+                ).where(history_table.c.product_name == name)
+                .order_by(history_table.c.id.asc())
+            ).fetchall()
+        return rows
