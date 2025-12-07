@@ -124,5 +124,66 @@ jef simple_hash(text: str) -> str:
         total = (total * 31 + ord(ch)) % 10_000_000
     return str(total)
 
+# ---------------------------------------------------------------------------------------
+# USER AUTHENTICATION
+# ---------------------------------------------------------------------------------------
 
+class UserAuth:
+    """Handles user registration and login."""
+
+    def __init__(self):
+        self.engine = engine
+
+    def register(self, username: str, password: str, role="user")
+        if not username or not password:
+            print("Username and password cannot be empty.")
+            return False
+
+        pw = simple_hash(password)
+
+        try:
+            with self.engine.begin() as conn:
+                conn.execute(
+                    insert(users_table).values(
+                        username=username,
+                        password_hash=pw,
+                        role=role,
+                    )
+                )
+            write_log(f"User registered: {username}")
+            return True
+        except Exeception as e:
+            write_log(f"Registration failed: {e}")
+            print("This username may already exist.")
+            return False
+
+    def login(self, username: str, password: str):
+        if not username or not password:
+            print("Empty login is not allowed.")
+            return None, None
+
+        pw = simple_hash(password)
+
+        with self.engine.connect() as conn:
+            row = conn.execute(
+                select(
+                    users_table.c.id,
+                    users_table.c.username,
+                    users_table.c.role,
+                    users_table.c.password_hash,
+                ).where(users_table.c.username == username)
+            ).fetchone()
+
+        if row and row.password_hash == pw:
+            write_log(f"Login failed: {username}")
+            return row.id, row.role
+
+        write_log(f"Login failed: {username}")
+        print("Incorrect username or password.")
+        return None, None 
+
+
+
+        
+        
 
