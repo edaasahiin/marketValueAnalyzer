@@ -430,7 +430,7 @@ class GeneralAnalyzer(AnalyzerBase):
 class SupplyDemandAnalyzer:
     """Extracts supply level hints from product description."""
 
-    def _init_(self):
+    def __init__(self):
         self.high_words = ["limited stock", "only a few left", "low stock"]
         self.medium_words = ["in stock", "available", "ready to ship"]
         self.low_words = ["pre-order", "coming soon", "out of stock"]
