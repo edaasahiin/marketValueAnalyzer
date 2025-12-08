@@ -553,3 +553,119 @@ class GoogleScraper:
         desc = desc_tag.get_text(strip=True) if desc_tag else "No description found."
 
         return prices, desc[:400]
+
+class TrendyolScraper:
+    """Lightweight fallback scraper for Trendyol."""
+
+    def __init__(self, product_name: str):
+        q = product_name.replace(" ", "+")
+        self.url = f"https://www.trendyol.com/sr?q={q}"
+        self.headers = {"User-Agent": "Mozilla/5.0"}
+
+    
+    def get_data(self):
+        try:
+            resp = requests.get(self.url, headers=self.headers, timeout=6)
+        except Exception as e:
+            write_log(f"Trendyol error: {e}")
+            return [0.0]
+
+        soup = BeautifulSoup(resp.text, "html.parser")
+        prices = []
+
+        for div in soup.find_all("div", {"class": "prc-box-dscntd"}, limit=6):
+            p = normalize_price_text(div.get_text())
+            if p > 0:
+                prices.append(p)
+
+        if not prices:
+            prices = [0.0]
+
+        return prices
+
+# CATEGORY DETECTION
+
+def detect_category(desc: str) -> str:
+    t = desc.lower()
+
+    if any(x in t for x in ["phone", "laptop", "charger", "battery"]):
+        return "Electronics"
+    if any(x in t for x in ["book", "novel", "publisher"]):
+        return "Book"
+    if any(x in t for x in ["shirt", "dress", "jeans", "cotton"]):
+        return "Clothing"
+
+    return "General"
+
+
+def choose_analyzer(cat: str, desc: str) -> AnalyzerBase:
+    if cat == "Electronics":
+        return ElectronicsAnalyzer()
+    if cat == "Book":
+        return BookAnalyzer()
+    if cat == "Clothing":
+        return ClothingAnalyzer()
+
+    # Backup check for unclear text
+    t = desc.lower()
+    if "phone" in t or "laptop" in t:
+        return ElectronicsAnalyzer()
+    if "book" in t:
+        return BookAnalyzer()
+    if "shirt" in t or "dress" in t:
+        return ClothingAnalyzer()
+
+    return GeneralAnalyzer()
+
+
+
+# PRESENTATION HELPERS
+
+
+def show_price_chart(history):
+    """Draws a simple price chart in the terminal."""
+    if not history:
+        print("No price history.")
+        return
+
+    prices = [h.price for h in history]
+    maxi, mini = max(prices), min(prices)
+
+    print("\n--- PRICE CHART ---\n")
+    for h in history:
+        bar_len = int((h.price / maxi) * 40) if maxi else 0
+        bar = "#" * bar_len
+        print(f"{h.date} [{h.source}] | {h.price:.2f} TL | {bar}")
+
+    print(f"\nMin: {mini:.2f} TL | Max: {maxi:.2f} TL\n")
+
+
+def render_product_card(row):
+    """Displays a simple product card."""
+    if not row:
+        print("Product not found.")
+        return
+
+    line = "═" * 34
+    print(f"╔{line}╗")
+    print(f"║{'PRODUCT REPORT':^34}║")
+    print(f"╠{line}╣")
+    print(f"║ Name        : {row.name[:20]:<20}║")
+    print(f"║ Category    : {row.category:<20}║")
+    print(f"║ Avg Price   : {row.avg_price:>9.2f} TL ║")
+    print(f"║ Min / Max   : {row.min_price:.0f} / {row.max_price:.0f} TL    ║")
+    print(f"║ Value Score : %{row.value_score:<3}              ║")
+    print(f"║ Trend       : {row.trend:<20}║")
+    print(f"║ Supply      : {row.supply_level:<20}║")
+    print(f"║ Consistency : {row.consistency:>6.1f}%           ║")
+    print(f"╠{line}╣")
+
+    desc = (row.description or "").replace("\n", " ")
+    desc = desc[:28] + "..." if len(desc) > 28 else desc
+
+    print(f"║ Added       : {row.date_added[:16]:<16}║")
+    print(f"║ Info        : {desc:<28}║")
+    print(f"╚{line}╝")
+
+
+
