@@ -668,4 +668,77 @@ def render_product_card(row):
     print(f"╚{line}╝")
 
 
+def show_menu():
+    print("\nSMARTWORTH — MARKET VALUE ANALYZER")
+    print("1. Analyze Product")
+    print("2. Show Price History")
+    print("3. Compare Two Products")
+    print("4. List Products")
+    print("5. Show Product Detail Card")
+    print("6. Find Similar Products")
+    print("7. Delete Product")
+    print("8. Run Scrapy Spider")
+    print("9. Exit")
 
+
+
+# MENU ACTIONS
+
+
+def handle_analyze_product(user_id, db):
+    name = input("Product name: ").strip()
+    if not name:
+        print("Name cannot be empty.")
+        return True
+
+    # Scrapers
+    google = GoogleScraper(name)
+    g_prices, desc = google.get_data()
+
+    trendy = TrendyolScraper(name)
+    t_prices = trendy.get_data()
+
+    # prices_by_source dictionary: This dictionary stores prices from different sources (Google, Trendyol).
+    # Each key corresponds to a source, and the value is a list of prices from that source.
+    prices_by_source = {"google": g_prices, "trendyol": t_prices}
+
+    all_prices = [p for src in prices_by_source.values() for p in src if p > 0]
+    if not all_prices:
+        all_prices = [0.0]
+
+    avg_price = sum(all_prices) / len(all_prices)
+
+    # Category detection
+    category = detect_category(desc)
+    analyzer = choose_analyzer(category, desc)
+
+    product = Product(
+        name=name,
+        category=category,
+        prices=all_prices,
+        avg_price=avg_price,
+        min_price=min(all_prices),
+        max_price=max(all_prices),
+        description=desc,
+    )
+
+    score = analyzer.calculate_value_score(product)
+    trend = analyzer.estimate_trend(product)
+
+    supply = SupplyDemandAnalyzer().analyze_supply_level(desc)
+    consistency = PriceConsistencyChecker().calculate_consistency(prices_by_source)
+
+    # Save to DB
+    db.add_product(user_id, product, score, trend, supply, consistency)
+    db.save_history(name, prices_by_source)
+
+    print("\n--- ANALYSIS COMPLETE ---")
+    print(f"Name        : {name}")
+    print(f"Category    : {category}")
+    print(f"Avg Price   : {avg_price:.2f} TL")
+    print(f"Min/Max     : {product.min_price} / {product.max_price}")
+    print(f"Score       : %{score}")
+    print(f"Trend       : {trend}")
+    print(f"Supply      : {supply}")
+    print(f"Consistency : {consistency}%")
+    return True
