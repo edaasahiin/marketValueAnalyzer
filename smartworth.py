@@ -742,3 +742,89 @@ def handle_analyze_product(user_id, db):
     print(f"Supply      : {supply}")
     print(f"Consistency : {consistency}%")
     return True
+
+def handle_price_history(db):
+    name = input("Product name: ").strip()
+    history = db.get_history(name)
+
+    print("\n--- PRICE HISTORY ---")
+    if not history:
+        print("No history found.")
+        return True
+
+    for h in history:
+        print(f"{h.date} [{h.source}] -> {h.price} TL")
+
+    show_price_chart(history)
+    return True
+
+
+def handle_compare_products(db):
+    n1 = input("First product: ").strip()
+    n2 = input("Second product: ").strip()
+
+    with db.engine.connect() as conn:
+        rows = conn.execute(
+            select(
+                products_table.c.name,
+                products_table.c.avg_price,
+                products_table.c.value_score,
+                products_table.c.trend,
+                products_table.c.supply_level,
+                products_table.c.consistency,
+            ).where(products_table.c.name.in_([n1, n2]))
+        ).fetchall()
+
+    if len(rows) < 2:
+        print("Both products must exist.")
+        return True
+
+    print("\n--- COMPARISON ---")
+    for r in rows:
+        print(
+            f"{r.name} - Avg: {r.avg_price}, Score: %{r.value_score}, Trend: {r.trend}"
+        )
+
+    return True
+
+def handle_product_list(user_id, db):
+    db.list_products(user_id)
+    return True
+
+
+def handle_product_delete(db):
+    raw = input("Product ID: ").strip()
+    if not raw.isdigit():
+        print("Invalid ID.")
+        return True
+
+    db.delete_product(int(raw))
+    print("Deleted.")
+    return True
+
+
+def handle_product_card(db):
+    raw = input("Product ID: ").strip()
+    if not raw.isdigit():
+        print("Invalid ID.")
+        return True
+
+    row = db.get_product_by_id(int(raw))
+    render_product_card(row)
+    return True
+
+
+def handle_similarity_search(user_id, db):
+    base = input("Base product name: ").strip()
+    finder = SimilarityFinder()
+    results = finder.find_similar(db, user_id, base)
+
+    print("\n--- SIMILAR PRODUCTS ---\n")
+    if not results:
+        print("None found.")
+        return True
+
+    for sim, pid, name, cat, avgp, score, tr in results:
+        print(f"[{pid}] {name} ({cat})  | Similarity: %{sim*100:.1f}")
+
+    return True
