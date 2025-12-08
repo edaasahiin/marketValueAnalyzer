@@ -828,3 +828,72 @@ def handle_similarity_search(user_id, db):
         print(f"[{pid}] {name} ({cat})  | Similarity: %{sim*100:.1f}")
 
     return True
+
+
+def run_scrapy_spider():
+    q = input("Query for spider: ").strip()
+    if not q:
+        return True
+
+    try:
+        subprocess.run(
+            ["scrapy", "crawl", "trendyol_spider", "-a", f"query={q}"],
+            check=False,
+        )
+    except FileNotFoundError:
+        print("Scrapy is not installed or spider file missing.")
+    return True
+
+
+def exit_program():
+    print("Exiting...")
+    return False
+    
+# MAIN LOOP
+
+def main():
+    auth = UserAuth()
+    db = Database()
+
+    print("\n=== SMARTWORTH LOGIN ===")
+    print("1. Login")
+    print("2. Register")
+
+    choice = input("Choose (1-2): ").strip()
+
+    if choice == "1":
+        username = input("Username: ")
+        password = input("Password: ")
+        user_id, role = auth.login(username, password)
+        if not user_id:
+            return
+    else:
+        username = input("New username: ")
+        password = input("New password: ")
+        if not auth.register(username, password):
+            return
+        user_id, role = auth.login(username, password)
+# actions dictionary: Maps menu options to corresponding functions.
+# The key is the user's menu selection, and the value is a lambda function that executes the corresponding action.
+    actions = {
+        "1": lambda: handle_analyze_product(user_id, db),
+        "2": lambda: handle_price_history(db),
+        "3": lambda: handle_compare_products(db),
+        "4": lambda: handle_product_list(user_id, db),
+        "5": lambda: handle_product_card(db),
+        "6": lambda: handle_similarity_search(user_id, db),
+        "7": lambda: handle_product_delete(db),
+        "8": run_scrapy_spider,
+        "9": exit_program,
+    }
+    
+    while True:
+        show_menu()
+        sel = input("Choose (1-9): ").strip()
+        action = actions.get(sel, lambda: print("Invalid choice."))
+        if action() is False:
+            break
+
+
+if __name__ == "__main__":
+    main()
