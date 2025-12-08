@@ -2,14 +2,14 @@
 SMARTWORTH - Market Value Analyzer
 Student Version (Revised)
 
-This project was prepared for basic web scpraping, price analysis,
+This project was prepared for basic web scraping, price analysis,
 simple trend calculation, and product tracking over SQLite.
 The code is kept simple enough for a student-level implementation.
 """
 
-# ----------------------------------------------------------------------------
+
 # IMPORTS
-# ----------------------------------------------------------------------------
+
 
 import requests
 from bs4 import BeautifulSoup
@@ -23,12 +23,12 @@ from sqlalchemy.sql import select, insert, delete
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
-# -------------------------------------------------------------------------------
-# DATABASE INITIALIZATION
-#--------------------------------------------------------------------------------
 
-DB_NAME = "smartworth.db)
-engine = create_engine(f"sqlite:///{DB_NAME]", echo=False, future=True)
+# DATABASE INITIALIZATION
+
+
+DB_NAME = "smartworth.db"
+engine = create_engine(f"sqlite:///{DB_NAME}", echo=False, future=True)
 metadata = MetaData()
 
 # USERS TABLE
@@ -45,8 +45,8 @@ users_table = Table(
 products_table = Table(
     "products",
      metadata,
-     Column("id", Intiger, primary_key=True),
-     Column("user_id", Intiger, primary_key=True),
+     Column("id", Integer, primary_key=True),
+     Column("user_id", Integer, primary_key=True),
      Column("name", String),
      Column("category", String),
      Column("avg_price", Float),
@@ -74,22 +74,22 @@ history_table = Table(
 
 metadata.create_all(engine)
 
-# ----------------------------------------------------------------------------------------
+
 #LOGGING
-# ----------------------------------------------------------------------------------------
+
 
 def write_log(message: str) -> None:
     """Simple log writer."""
     try:
-        with open("smartworth_logs.txt", "a", encoding="utf-8) as f:
-             now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-             f.write(f"[{now}] {message}\n")
+        with open("smartworth_logs.txt", "a", encoding="utf-8") as f:
+            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            f.write(f"[{now}] {message}\n")
     except Exception:
         pass
 
-# ----------------------------------------------------------------------------------------
+
 # UTILITY FUNCTIONS
-# ----------------------------------------------------------------------------------------
+
 
 def normalize_price_text(text: str) -> float:
     """
@@ -117,16 +117,16 @@ def normalize_price_text(text: str) -> float:
         return 0.0
 
 
-jef simple_hash(text: str) -> str:
+def simple_hash(text: str) -> str:
     """Very simple password hashing."""
     total = 0
     for ch in text:
         total = (total * 31 + ord(ch)) % 10_000_000
     return str(total)
 
-# ---------------------------------------------------------------------------------------
+
 # USER AUTHENTICATION
-# ---------------------------------------------------------------------------------------
+
 
 class UserAuth:
     """Handles user registration and login."""
@@ -134,7 +134,7 @@ class UserAuth:
     def __init__(self):
         self.engine = engine
 
-    def register(self, username: str, password: str, role="user")
+    def register(self, username: str, password: str, role="user"):
         if not username or not password:
             print("Username and password cannot be empty.")
             return False
@@ -152,7 +152,7 @@ class UserAuth:
                 )
             write_log(f"User registered: {username}")
             return True
-        except Exeception as e:
+        except Exception as e:
             write_log(f"Registration failed: {e}")
             print("This username may already exist.")
             return False
@@ -175,7 +175,7 @@ class UserAuth:
             ).fetchone()
 
         if row and row.password_hash == pw:
-            write_log(f"Login failed: {username}")
+            write_log(f"Login success: {username}")
             return row.id, row.role
 
         write_log(f"Login failed: {username}")
